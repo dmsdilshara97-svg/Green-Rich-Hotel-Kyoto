@@ -1,0 +1,118 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#142d46">
+  <title>Staff Attendance</title>
+  <link rel="stylesheet" href="styles.css">
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+</head>
+<body>
+  <header class="topbar">
+    <div>
+      <div class="brand">GREEN RICH HOTEL</div>
+      <div class="subbrand">KYOTO EKI MINAMI · 勤怠管理</div>
+    </div>
+    <div class="top-actions">
+      <button id="langToggle" class="ghost small">日本語</button>
+      <button id="logoutBtn" class="ghost small hidden">Log out</button>
+    </div>
+  </header>
+
+  <main class="container">
+    <section id="setupNotice" class="notice hidden">
+      <strong>Setup required</strong>
+      <p>Add your Supabase project URL and anon key in <code>app.js</code>, then run the SQL setup file.</p>
+    </section>
+
+    <section id="loginView" class="panel login-panel">
+      <div class="eyebrow">SECURE STAFF PORTAL</div>
+      <h1 data-en="Welcome back" data-ja="おかえりなさい">Welcome back</h1>
+      <p class="muted" data-en="Sign in with your individual staff account." data-ja="個人アカウントでログインしてください。">Sign in with your individual staff account.</p>
+      <form id="loginForm">
+        <label for="email" data-en="Email address" data-ja="メールアドレス">Email address</label>
+        <input id="email" type="email" autocomplete="username" required placeholder="staff@hotel.com">
+        <label for="password" data-en="Password" data-ja="パスワード">Password</label>
+        <input id="password" type="password" autocomplete="current-password" required placeholder="••••••••">
+        <button class="primary full" type="submit" data-en="Sign in" data-ja="ログイン">Sign in</button>
+      </form>
+      <p id="loginMessage" class="message" role="status"></p>
+      <p class="tiny muted">Accounts are created by the system administrator.</p>
+    </section>
+
+    <section id="appView" class="hidden">
+      <div class="welcome-row">
+        <div>
+          <div class="eyebrow" id="roleLabel">STAFF PORTAL</div>
+          <h1 id="welcomeName">Hello</h1>
+          <p class="muted" id="todayLabel"></p>
+        </div>
+        <div class="live-clock" id="liveClock">--:--:--</div>
+      </div>
+
+      <section id="staffPanel" class="panel">
+        <div class="section-heading">
+          <div><div class="eyebrow">ATTENDANCE</div><h2 data-en="My shift" data-ja="本日の勤務">My shift</h2></div>
+          <span id="statePill" class="pill neutral">Not clocked in</span>
+        </div>
+        <div class="action-grid">
+          <button class="action in" data-action="clock_in"><span>↗</span><b data-en="Clock In" data-ja="出勤">Clock In</b><small>出勤</small></button>
+          <button class="action break" data-action="break_start"><span>Ⅱ</span><b data-en="Break Start" data-ja="休憩開始">Break Start</b><small>休憩開始</small></button>
+          <button class="action break-end" data-action="break_end"><span>▶</span><b data-en="Break End" data-ja="休憩終了">Break End</b><small>休憩終了</small></button>
+          <button class="action out" data-action="clock_out"><span>↙</span><b data-en="Clock Out" data-ja="退勤">Clock Out</b><small>退勤</small></button>
+        </div>
+        <div class="gps-note"><span class="gps-dot"></span><span data-en="GPS location is checked against the 200 m hotel area when you record attendance." data-ja="打刻時にGPS位置情報を取得します。">GPS location is checked against the 200 m hotel area when you record attendance.</span></div>
+        <div id="staffMessage" class="message" role="status"></div>
+        <h3 data-en="Today's activity" data-ja="本日の記録">Today's activity</h3>
+        <div id="myEvents" class="event-list"><p class="muted">No records yet.</p></div>
+      </section>
+
+      <section id="managerPanel" class="panel hidden">
+        <div class="section-heading manager-head">
+          <div><div class="eyebrow">MANAGEMENT</div><h2 data-en="Manager dashboard" data-ja="管理者ダッシュボード">Manager dashboard</h2></div>
+          <button id="refreshBtn" class="secondary">↻ <span data-en="Refresh" data-ja="更新">Refresh</span></button>
+        </div>
+        <div class="stats-grid">
+          <div class="stat"><span data-en="Clocked in" data-ja="出勤中">Clocked in</span><strong id="statIn">—</strong></div>
+          <div class="stat"><span data-en="On break" data-ja="休憩中">On break</span><strong id="statBreak">—</strong></div>
+          <div class="stat"><span data-en="Clocked out" data-ja="退勤済み">Clocked out</span><strong id="statOut">—</strong></div>
+          <div class="stat"><span data-en="Late today" data-ja="本日の遅刻">Late today</span><strong id="statLate">—</strong></div>
+        </div>
+        <div class="filters">
+          <label><span data-en="Month" data-ja="対象月">Month</span><input id="monthFilter" type="month"></label>
+          <label><span data-en="Staff" data-ja="スタッフ">Staff</span><select id="staffFilter"><option value="">All staff</option></select></label>
+          <button id="exportBtn" class="primary">⇩ <span data-en="Export Excel" data-ja="Excel出力">Export Excel</span></button>
+        </div>
+        <h3 data-en="Today's staff status" data-ja="本日のスタッフ状況">Today's staff status</h3>
+        <div class="table-wrap"><table><thead><tr><th>Staff / スタッフ</th><th>Status / 状態</th><th>First in / 出勤</th><th>Last action / 最終打刻</th><th>GPS</th></tr></thead><tbody id="todayRows"><tr><td colspan="5">Loading…</td></tr></tbody></table></div>
+        <h3>Individual shift assignment / 個別シフト登録</h3>
+        <div class="filters shift-form">
+          <label>Staff / スタッフ<select id="shiftStaff"></select></label>
+          <label>Date / 日付<input id="shiftDate" type="date"></label>
+          <label>Start / 開始<input id="shiftStart" type="time" required></label>
+          <label>End / 終了<input id="shiftEnd" type="time"></label>
+          <button id="saveShiftBtn" class="secondary" type="button">Save shift / 保存</button>
+        </div>
+        <p class="tiny muted">Set each staff member's planned start time for each work date. Late reports compare the first clock-in against this individual roster. / 各スタッフの勤務日ごとに開始時刻を登録します。</p>
+        <h3>Correct a punch / 打刻修正（履歴保存）</h3>
+        <div class="filters shift-form">
+          <label>Original record / 元の記録<select id="correctionEvent"></select></label>
+          <label>Correct action / 修正内容<select id="correctionAction"><option value="clock_in">Clock In</option><option value="break_start">Break Start</option><option value="break_end">Break End</option><option value="clock_out">Clock Out</option></select></label>
+          <label>Correct date & time / 修正日時<input id="correctionTime" type="datetime-local"></label>
+          <label>Reason / 修正理由<input id="correctionReason" type="text" minlength="5" placeholder="Reason for correction"></label>
+          <button id="correctBtn" class="secondary" type="button">Save correction / 修正保存</button>
+        </div>
+        <p class="tiny muted">The original punch is retained in the audit trail and marked as voided. / 元の打刻は監査履歴として保存されます。</p>
+        <h3 data-en="Monthly attendance records" data-ja="月間勤怠記録">Monthly attendance records</h3>
+        <div class="table-wrap"><table><thead><tr><th>Date / 日付</th><th>Staff / スタッフ</th><th>Action / 打刻</th><th>Time / 時刻</th><th>GPS</th></tr></thead><tbody id="monthRows"><tr><td colspan="5">Choose a month.</td></tr></tbody></table></div>
+        <p class="tiny muted">Excel export downloads the filtered event log. Late status uses each staff member's configured scheduled start time (JST).</p>
+        <div id="managerMessage" class="message" role="status"></div>
+      </section>
+    </section>
+  </main>
+  <footer>Green Rich Hotel-Kyoto Eki Minami · Japan Standard Time (JST)</footer>
+  <script src="app.js"></script>
+</body>
+</html>

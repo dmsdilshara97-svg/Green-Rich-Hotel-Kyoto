@@ -356,15 +356,6 @@ function ensureTestPanel() {
     $("testMessage").textContent =
       `${data} test records deleted successfully.`;
 
-    await loadTestEvents();
-
-  } catch (err) {
-    $("testMessage").textContent =
-      err.message || "Reset failed.";
-  } finally {
-    $("resetTestRecords").disabled = false;
-  }
-});
 async function addTestEvent() {
   const staffId = $("testStaff").value;
   const action = $("testAction").value;

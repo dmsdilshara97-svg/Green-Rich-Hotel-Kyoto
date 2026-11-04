@@ -5,7 +5,7 @@
 
 // Supabase configuration
 const SUPABASE_URL = "https://brlznyvnwlkxifobmhja.supabase.co";
-const SUPABASE_ANON_KEY = "sb_publishable_XxD8yRrJjG4EqUT_nUFNTA_-YRQ6VqP";
+const SUPABASE_ANON_KEY = "sb_publishable_XxD8yRrRjG4EqUT_nUFNTA_-YRQ6VqP";
 
 const configured =
   !SUPABASE_URL.includes("YOUR-PROJECT") &&

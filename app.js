@@ -332,39 +332,35 @@ function ensureTestPanel() {
   $("addTestEvent").addEventListener("click", addTestEvent);
 
   $("resetTestRecords").addEventListener("click", async () => {
-    const confirmed = confirm(
-      "Are you sure you want to delete ALL test attendance records?"
-    );
-
-    if (!confirmed) return;
-
-    $("resetTestRecords").disabled = true;
-    $("testMessage").textContent = "Resetting test records...";
-
-    try {
-      const { data, error } = await db.rpc(
-        "manager_reset_test_attendance"
+    $("resetTestRecords").addEventListener("click", async () => {
+      const confirmed = confirm(
+        "Are you sure you want to delete ALL test attendance records?"
       );
 
-      if (error) throw error;
+      if (!confirmed) return;
 
-      {
-      $("resetTestRecords").disabled = false;
-    }
-  });
-}
-    $("testMessage").textContent =
-      `${data} test records deleted successfully.`;
+      $("resetTestRecords").disabled = true;
+      $("testMessage").textContent = "Resetting test records...";
 
-async function addTestEvent() {
-  const staffId = $("testStaff").value;
-  const action = $("testAction").value;
-  const rawTime = $("testDateTime").value;
+      try {
+        const { data, error } = await db.rpc(
+          "manager_reset_test_attendance"
+        );
 
-  if (!staffId || !rawTime) {
-    $("testMessage").textContent = "Please select staff and date/time.";
-    return;
-  }
+        if (error) throw error;
+
+        $("testMessage").textContent =
+          `${data} test records deleted successfully.`;
+
+        await loadTestEvents();
+
+      } catch (err) {
+        $("testMessage").textContent =
+          err.message || "Reset failed.";
+      } finally {
+        $("resetTestRecords").disabled = false;
+      }
+    });
 
   const eventTime = new Date(rawTime + ":00+09:00");
 

@@ -348,15 +348,7 @@ function ensureTestPanel() {
 
       if (error) throw error;
 
-      $("testMessage").textContent =
-        `${data} test records deleted successfully.`;
-
-      await loadTestEvents();
-
-    } catch (err) {
-      $("testMessage").textContent =
-        err.message || "Reset failed.";
-    } finally {
+      {
       $("resetTestRecords").disabled = false;
     }
   });

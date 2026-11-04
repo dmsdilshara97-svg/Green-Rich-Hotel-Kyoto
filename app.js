@@ -239,3 +239,29 @@ if (!configured) {
     }
   });
 }
+// Render attendance correction options
+function renderCorrectionOptions() {
+  const names = Object.fromEntries(
+    allProfiles.map(p => [p.id, p.display_name])
+  );
+
+  const sel = $("correctionEvent");
+
+  if (!sel) {
+    console.error("correctionEvent element not found");
+    return;
+  }
+
+  sel.innerHTML = allMonthEvents.map(e => `
+    <option value="${e.id}">
+      ${escapeHtml(names[e.staff_id] || "Staff")} ·
+      ${fmtDate(e.created_at)} ${fmtTime(e.created_at)} ·
+      ${labels[e.action]?.[0] || e.action}
+    </option>
+  `).join("");
+
+  if (!allMonthEvents.length) {
+    sel.innerHTML =
+      '<option value="">No records in selected month</option>';
+  }
+}

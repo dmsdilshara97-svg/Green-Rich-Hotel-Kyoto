@@ -303,7 +303,10 @@ function ensureTestPanel() {
     </button>
 
     <p id="testMessage" style="margin-top:12px;"></p>
-
+<button id="resetTestRecords"
+  style="padding:11px 18px;background:#dc2626;color:white;border:0;border-radius:7px;margin-top:10px;">
+  Reset Test Records
+</button>
     <h3>Test Late Attendance</h3>
     <p id="testLateCount">Loading...</p>
 
@@ -329,7 +332,35 @@ function ensureTestPanel() {
 
   $("addTestEvent").addEventListener("click", addTestEvent);
 }
+$("resetTestRecords").addEventListener("click", async () => {
+  const confirmed = confirm(
+    "Are you sure you want to delete ALL test attendance records?"
+  );
 
+  if (!confirmed) return;
+
+  $("resetTestRecords").disabled = true;
+  $("testMessage").textContent = "Resetting test records...";
+
+  try {
+    const { data, error } = await db.rpc(
+      "manager_reset_test_attendance"
+    );
+
+    if (error) throw error;
+
+    $("testMessage").textContent =
+      `${data} test records deleted successfully.`;
+
+    await loadTestEvents();
+
+  } catch (err) {
+    $("testMessage").textContent =
+      err.message || "Reset failed.";
+  } finally {
+    $("resetTestRecords").disabled = false;
+  }
+});
 async function addTestEvent() {
   const staffId = $("testStaff").value;
   const action = $("testAction").value;

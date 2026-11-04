@@ -267,6 +267,8 @@ function renderCorrectionOptions() {
 }
 // =====================================
 // MANAGER TEST MODE
+// =====================================
+// MANAGER TEST MODE
 // Test records are stored separately.
 // =====================================
 
@@ -274,6 +276,7 @@ function ensureTestPanel() {
   if (document.getElementById("testModePanel")) return;
 
   const panel = document.createElement("section");
+
   panel.id = "testModePanel";
   panel.style.cssText =
     "margin:20px 0;padding:18px;border:2px dashed #d97706;border-radius:12px;background:#fffaf0;color:#222;";
@@ -303,10 +306,12 @@ function ensureTestPanel() {
     </button>
 
     <p id="testMessage" style="margin-top:12px;"></p>
-<button id="resetTestRecords"
-  style="padding:11px 18px;background:#dc2626;color:white;border:0;border-radius:7px;margin-top:10px;">
-  Reset Test Records
-</button>
+
+    <button id="resetTestRecords"
+      style="padding:11px 18px;background:#dc2626;color:white;border:0;border-radius:7px;margin-top:10px;">
+      Reset Test Records
+    </button>
+
     <h3>Test Late Attendance</h3>
     <p id="testLateCount">Loading...</p>
 
@@ -325,6 +330,7 @@ function ensureTestPanel() {
 
   $("testDateTime").value =
     `${japanTime.getFullYear()}-${pad(japanTime.getMonth()+1)}-${pad(japanTime.getDate())}T${pad(japanTime.getHours())}:${pad(japanTime.getMinutes())}`;
+
   $("testStaff").innerHTML = allProfiles.map(p =>
     `<option value="${p.id}">${escapeHtml(p.display_name)}</option>`
   ).join("");
@@ -332,35 +338,47 @@ function ensureTestPanel() {
   $("addTestEvent").addEventListener("click", addTestEvent);
 
   $("resetTestRecords").addEventListener("click", async () => {
-    $("resetTestRecords").addEventListener("click", async () => {
-      const confirmed = confirm(
-        "Are you sure you want to delete ALL test attendance records?"
+    const confirmed = confirm(
+      "Are you sure you want to delete ALL test attendance records?"
+    );
+
+    if (!confirmed) return;
+
+    $("resetTestRecords").disabled = true;
+    $("testMessage").textContent = "Resetting test records...";
+
+    try {
+      const { data, error } = await db.rpc(
+        "manager_reset_test_attendance"
       );
 
-      if (!confirmed) return;
+      if (error) throw error;
 
-      $("resetTestRecords").disabled = true;
-      $("testMessage").textContent = "Resetting test records...";
+      $("testMessage").textContent =
+        `${data} test records deleted successfully.`;
 
-      try {
-        const { data, error } = await db.rpc(
-          "manager_reset_test_attendance"
-        );
+      await loadTestEvents();
 
-        if (error) throw error;
+    } catch (err) {
+      $("testMessage").textContent =
+        err.message || "Reset failed.";
+    } finally {
+      $("resetTestRecords").disabled = false;
+    }
+  });
+}
 
-        $("testMessage").textContent =
-          `${data} test records deleted successfully.`;
 
-        await loadTestEvents();
+async function addTestEvent() {
+  const staffId = $("testStaff").value;
+  const action = $("testAction").value;
+  const rawTime = $("testDateTime").value;
 
-      } catch (err) {
-        $("testMessage").textContent =
-          err.message || "Reset failed.";
-      } finally {
-        $("resetTestRecords").disabled = false;
-      }
-    });
+  if (!staffId || !rawTime) {
+    $("testMessage").textContent =
+      "Please select staff and date/time.";
+    return;
+  }
 
   const eventTime = new Date(rawTime + ":00+09:00");
 
@@ -381,15 +399,19 @@ function ensureTestPanel() {
 
     if (error) throw error;
 
-    $("testMessage").textContent = "Test event saved successfully.";
+    $("testMessage").textContent =
+      "Test event saved successfully.";
+
     await loadTestEvents();
 
   } catch (err) {
-    $("testMessage").textContent = err.message || "Test event failed.";
+    $("testMessage").textContent =
+      err.message || "Test event failed.";
   } finally {
     $("addTestEvent").disabled = false;
   }
 }
+
 
 async function loadTestEvents() {
   const { data, error } = await db
@@ -417,17 +439,22 @@ async function loadTestEvents() {
   `).join("") || "No test records yet.";
 
   const today = jstToday();
-
+  const todayDate = fmtDate(today + "T00:00:00+09:00");
   const lateStaff = new Set();
 
   (data || []).forEach(e => {
-    if (e.action !== "clock_in" || fmtDate(e.event_time) !==
-        fmtDate(today + "T00:00:00+09:00")) return;
+    if (
+      e.action !== "clock_in" ||
+      fmtDate(e.event_time) !== todayDate
+    ) return;
 
-    const shift = todayShifts.find(s => s.staff_id === e.staff_id);
+    const shift = todayShifts.find(
+      s => s.staff_id === e.staff_id
+    );
 
     if (shift) {
       const actual = fmtTime(e.event_time).slice(0, 5);
+
       if (actual > shift.shift_start_time.slice(0, 5)) {
         lateStaff.add(e.staff_id);
       }
@@ -437,6 +464,7 @@ async function loadTestEvents() {
   $("testLateCount").textContent =
     `${lateStaff.size} late staff (TEST records only)`;
 }
+
 
 // Wrap manager dashboard loading to add the test panel.
 const originalLoadManagerForTest = loadManager;

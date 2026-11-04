@@ -145,37 +145,52 @@ function renderMonth(){
   const map=Object.fromEntries(allProfiles.map(p=>[p.id,p.display_name]));
   $("monthRows").innerHTML=allMonthEvents.map(e=>`<tr><td>${fmtDate(e.created_at)}</td><td>${escapeHtml(map[e.staff_id]||"Unknown")}</td><td>${labels[e.action]?.[0]||e.action}${e.is_manual?" · Corrected":""}</td><td>${fmtTime(e.created_at)}</td><td>${e.latitude!=null?`<a target="_blank" rel="noopener" href="https://maps.google.com/?q=${e.latitude},${e.longitude}">Map</a>`:"—"}</td></tr>`).join("")||'<tr><td colspan="5">No records for this month.</td></tr>';
 }
-function renderCorrectionOptions(){
-  const names=Object.fromEntries(allProfiles.map(p=>[p.id,p.display_name]));
-  const sel=$("correctionEvent");
-  sel.innerHTML=allMonthEvents.map(e=>`<option value="${e.id}">${escapeHtml(names[e.staff_id]||"Staff")} · ${fmtDate(e.created_at)} ${fmtTime(e.created_at)} · ${labels[e.action][0]}</option>`).join("");
-  if(!allMonthEvents.length)sel.innerHTML='<option value="">No records in selected month</option>';
-}
-$("saveShiftBtn").addEventListener("click",async()=>{
-  const staffId=$("shiftStaff").value,date=$("shiftDate").value,start=$("shiftStart").value,end=$("shiftEnd").value;
-  if(!staffId||!date||!start){say("managerMessage","Choose staff, date and shift start time.");return;}
-  const {error}=await db.rpc("manager_save_shift",{p_staff_id:staffId,p_shift_date:date,p_start:start,p_end:end||null});
-  if(error){say("managerMessage",error.message);return;}
-  say("managerMessage","Individual shift saved.",true);if(date===jstToday())await loadManager();
-});
-$("correctBtn").addEventListener("click",async()=>{
-  const id=$("correctionEvent").value,action=$("correctionAction").value,raw=$("correctionTime").value,reason=$("correctionReason").value.trim();
-  if(!id||!raw||reason.length<5){say("managerMessage","Select a record, corrected date/time and reason (at least 5 characters).");return;}
-  const when=new Date(raw);if(Number.isNaN(when.getTime())){say("managerMessage","Invalid correction date/time.");return;}
-  const {error}=await db.rpc("manager_correct_event",{p_event_id:Number(id),p_new_action:action,p_new_time:when.toISOString(),p_reason:reason});
-  if(error){say("managerMessage",error.message);return;}
-  $("correctionReason").value="";say("managerMessage","Correction saved. Original punch retained in audit history.",true);await loadManager();
-});
+$("saveShiftBtn").addEventListener("click", async () => {
+  try {
+    console.log("Save Shift button clicked");
 
-$("exportBtn").addEventListener("click",()=>{
-  if(!window.XLSX){say("managerMessage","Excel export library did not load.");return;}
-  const names=Object.fromEntries(allProfiles.map(p=>[p.id,p.display_name]));
-  const rows=allMonthEvents.map(e=>({Date_JST:fmtDate(e.created_at),Staff:names[e.staff_id]||"",Action:labels[e.action]?.[0]||e.action,Time_JST:fmtTime(e.created_at),Latitude:e.latitude,Longitude:e.longitude,GPS_Accuracy_m:e.accuracy_m,Manually_Corrected:e.is_manual,Correction_Reason:e.correction_reason||""}));
-  const ws=XLSX.utils.json_to_sheet(rows),wb=XLSX.utils.book_new();
-  XLSX.utils.book_append_sheet(wb,ws,"Attendance");
-  XLSX.writeFile(wb,`attendance-${$("monthFilter").value}.xlsx`);
-});
+    if (!db) {
+      say("managerMessage", "Supabase is not connected.");
+      return;
+    }
 
+    const staffId = $("shiftStaff").value;
+    const date = $("shiftDate").value;
+    const start = $("shiftStart").value;
+    const end = $("shiftEnd").value;
+
+    if (!staffId || !date || !start) {
+      say("managerMessage", "Choose staff, date and shift start time.");
+      return;
+    }
+
+    say("managerMessage", "Saving shift...", true);
+
+    const { data, error } = await db.rpc("manager_save_shift", {
+      p_staff_id: staffId,
+      p_shift_date: date,
+      p_start: start,
+      p_end: end || null
+    });
+
+    if (error) {
+      console.error("Shift save error:", error);
+      say("managerMessage", error.message);
+      return;
+    }
+
+    console.log("Shift saved:", data);
+    say("managerMessage", "Individual shift saved successfully.", true);
+
+    if (date === jstToday()) {
+      await loadManager();
+    }
+
+  } catch (err) {
+    console.error("Unexpected error:", err);
+    say("managerMessage", err.message || "Unexpected error occurred.");
+  }
+});
 if(!configured){$("setupNotice").classList.remove("hidden");$("loginForm").querySelector("button").disabled=true;}
 else{
   db.auth.getSession().then(({data})=>{if(data.session){currentUser=data.session.user;loadProfile();}});

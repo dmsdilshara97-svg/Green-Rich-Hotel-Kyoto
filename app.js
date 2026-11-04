@@ -145,9 +145,12 @@ function renderMonth(){
   const map=Object.fromEntries(allProfiles.map(p=>[p.id,p.display_name]));
   $("monthRows").innerHTML=allMonthEvents.map(e=>`<tr><td>${fmtDate(e.created_at)}</td><td>${escapeHtml(map[e.staff_id]||"Unknown")}</td><td>${labels[e.action]?.[0]||e.action}${e.is_manual?" · Corrected":""}</td><td>${fmtTime(e.created_at)}</td><td>${e.latitude!=null?`<a target="_blank" rel="noopener" href="https://maps.google.com/?q=${e.latitude},${e.longitude}">Map</a>`:"—"}</td></tr>`).join("")||'<tr><td colspan="5">No records for this month.</td></tr>';
 }
+
 $("saveShiftBtn").addEventListener("click", async () => {
+  const btn = $("saveShiftBtn");
+
   try {
-    console.log("Save Shift button clicked");
+    console.log("NEW SAVE SHIFT CODE RUNNING");
 
     if (!db) {
       say("managerMessage", "Supabase is not connected.");
@@ -164,7 +167,8 @@ $("saveShiftBtn").addEventListener("click", async () => {
       return;
     }
 
-    say("managerMessage", "Saving shift...", true);
+    btn.disabled = true;
+    say("managerMessage", "Saving individual shift...", true);
 
     const { data, error } = await db.rpc("manager_save_shift", {
       p_staff_id: staffId,
@@ -174,25 +178,46 @@ $("saveShiftBtn").addEventListener("click", async () => {
     });
 
     if (error) {
-      console.error("Shift save error:", error);
-      say("managerMessage", error.message);
+      console.error("Save Shift Error:", error);
+      say("managerMessage", "Shift was not saved: " + error.message);
       return;
     }
 
-    console.log("Shift saved:", data);
-    say("managerMessage", "Individual shift saved successfully.", true);
+    console.log("Shift saved successfully:", data);
 
     if (date === jstToday()) {
       await loadManager();
     }
 
+    say("managerMessage", "Individual shift saved successfully.", true);
+
   } catch (err) {
     console.error("Unexpected error:", err);
-    say("managerMessage", err.message || "Unexpected error occurred.");
+    say("managerMessage", "Unexpected error: " + (err.message || String(err)));
+
+  } finally {
+    btn.disabled = false;
   }
 });
-if(!configured){$("setupNotice").classList.remove("hidden");$("loginForm").querySelector("button").disabled=true;}
-else{
-  db.auth.getSession().then(({data})=>{if(data.session){currentUser=data.session.user;loadProfile();}});
-  db.auth.onAuthStateChange((_event,session)=>{if(!session){currentUser=null;profile=null;$("appView").classList.add("hidden");$("loginView").classList.remove("hidden");$("logoutBtn").classList.add("hidden");}});
+
+if (!configured) {
+  $("setupNotice").classList.remove("hidden");
+  $("loginForm").querySelector("button").disabled = true;
+} else {
+  db.auth.getSession().then(({ data }) => {
+    if (data.session) {
+      currentUser = data.session.user;
+      loadProfile();
+    }
+  });
+
+  db.auth.onAuthStateChange((_event, session) => {
+    if (!session) {
+      currentUser = null;
+      profile = null;
+      $("appView").classList.add("hidden");
+      $("loginView").classList.remove("hidden");
+      $("logoutBtn").classList.add("hidden");
+    }
+  });
 }

@@ -325,30 +325,42 @@ function ensureTestPanel() {
 
   $("testDateTime").value =
     `${japanTime.getFullYear()}-${pad(japanTime.getMonth()+1)}-${pad(japanTime.getDate())}T${pad(japanTime.getHours())}:${pad(japanTime.getMinutes())}`;
-
   $("testStaff").innerHTML = allProfiles.map(p =>
     `<option value="${p.id}">${escapeHtml(p.display_name)}</option>`
   ).join("");
 
   $("addTestEvent").addEventListener("click", addTestEvent);
-}
-$("resetTestRecords").addEventListener("click", async () => {
-  const confirmed = confirm(
-    "Are you sure you want to delete ALL test attendance records?"
-  );
 
-  if (!confirmed) return;
-
-  $("resetTestRecords").disabled = true;
-  $("testMessage").textContent = "Resetting test records...";
-
-  try {
-    const { data, error } = await db.rpc(
-      "manager_reset_test_attendance"
+  $("resetTestRecords").addEventListener("click", async () => {
+    const confirmed = confirm(
+      "Are you sure you want to delete ALL test attendance records?"
     );
 
-    if (error) throw error;
+    if (!confirmed) return;
 
+    $("resetTestRecords").disabled = true;
+    $("testMessage").textContent = "Resetting test records...";
+
+    try {
+      const { data, error } = await db.rpc(
+        "manager_reset_test_attendance"
+      );
+
+      if (error) throw error;
+
+      $("testMessage").textContent =
+        `${data} test records deleted successfully.`;
+
+      await loadTestEvents();
+
+    } catch (err) {
+      $("testMessage").textContent =
+        err.message || "Reset failed.";
+    } finally {
+      $("resetTestRecords").disabled = false;
+    }
+  });
+}
     $("testMessage").textContent =
       `${data} test records deleted successfully.`;
 

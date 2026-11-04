@@ -145,7 +145,25 @@ function renderMonth(){
   const map=Object.fromEntries(allProfiles.map(p=>[p.id,p.display_name]));
   $("monthRows").innerHTML=allMonthEvents.map(e=>`<tr><td>${fmtDate(e.created_at)}</td><td>${escapeHtml(map[e.staff_id]||"Unknown")}</td><td>${labels[e.action]?.[0]||e.action}${e.is_manual?" · Corrected":""}</td><td>${fmtTime(e.created_at)}</td><td>${e.latitude!=null?`<a target="_blank" rel="noopener" href="https://maps.google.com/?q=${e.latitude},${e.longitude}">Map</a>`:"—"}</td></tr>`).join("")||'<tr><td colspan="5">No records for this month.</td></tr>';
 }
+function renderCorrectionOptions() {
+  const names = Object.fromEntries(
+    allProfiles.map(p => [p.id, p.display_name])
+  );
 
+  const sel = $("correctionEvent");
+
+  sel.innerHTML = allMonthEvents.map(e =>
+    `<option value="${e.id}">
+      ${escapeHtml(names[e.staff_id] || "Staff")} ·
+      ${fmtDate(e.created_at)} ${fmtTime(e.created_at)} ·
+      ${labels[e.action]?.[0] || e.action}
+    </option>`
+  ).join("");
+
+  if (!allMonthEvents.length) {
+    sel.innerHTML = '<option value="">No records in selected month</option>';
+  }
+}
 $("saveShiftBtn").addEventListener("click", async () => {
   const btn = $("saveShiftBtn");
 

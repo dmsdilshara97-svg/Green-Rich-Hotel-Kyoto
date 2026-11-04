@@ -799,6 +799,7 @@ function ensureTestPanel() {
 // ADD TEST ATTENDANCE EVENT
 // =====================================
 
+
 async function addTestEvent() {
   const staffId = $("testStaff").value;
   const action = $("testAction").value;
@@ -807,7 +808,6 @@ async function addTestEvent() {
   if (!staffId || !rawTime) {
     $("testMessage").textContent =
       "Please select staff and date/time.";
-
     return;
   }
 
@@ -822,7 +822,7 @@ async function addTestEvent() {
   $("testMessage").textContent = "Saving test record...";
 
   try {
-    const { error } = await db.rpc(
+    const { data, error } = await db.rpc(
       "manager_add_test_attendance",
       {
         p_staff_id: staffId,
@@ -834,13 +834,14 @@ async function addTestEvent() {
     if (error) throw error;
 
     $("testMessage").textContent =
-      "Test event saved successfully.";
+      "Test attendance saved successfully. ID: " + data;
 
     await loadTestEvents();
 
   } catch (err) {
+    console.error("Test attendance error:", err);
     $("testMessage").textContent =
-      err.message || "Test event failed.";
+      err.message || "Could not save test record.";
 
   } finally {
     $("addTestEvent").disabled = false;
@@ -848,75 +849,85 @@ async function addTestEvent() {
 }
 
 // =====================================
-// LOAD TEST RECORDS
+// LOAD TEST ATTENDANCE
 // =====================================
 
 async function loadTestEvents() {
   const { data, error } = await db
     .from("test_attendance_events")
     .select("*")
-    .order("event_time", { ascending: false });
+    .order("event_time", { ascending: true });
 
   if (error) {
     $("testRecords").textContent = error.message;
     return;
   }
 
+  const events = data || [];
+
   const names = Object.fromEntries(
     allProfiles.map(p => [p.id, p.display_name])
   );
 
-  $("testRecords").innerHTML = (data || []).map(e => `
-    <div style="padding:9px;border-bottom:1px solid #ddd;">
-      <strong>${escapeHtml(names[e.staff_id] || "Staff")}</strong>
-      · ${labels[e.action][0]}
-      · ${fmtDate(e.event_time)}
-      ${fmtTime(e.event_time)}
-      <span style="color:#d97706;">TEST</span>
-    </div>
-  `).join("") || "No test records yet.";
+  const shifts = todayShifts || [];
+  let lateCount = 0;
 
-  const todayDate = fmtDate(
-    jstToday() + "T00:00:00+09:00"
+  const todayEvents = events.filter(e =>
+    new Date(e.event_time).toLocaleDateString("en-CA", {
+      timeZone: "Asia/Tokyo"
+    }) === jstToday()
   );
 
-  const lateStaff = new Set();
+  allProfiles.forEach(p => {
+    const staffEvents = todayEvents
+      .filter(e => e.staff_id === p.id)
+      .sort((a, b) =>
+        new Date(a.event_time) - new Date(b.event_time)
+      );
 
-  (data || []).forEach(e => {
-    if (
-      e.action !== "clock_in" ||
-      fmtDate(e.event_time) !== todayDate
-    ) {
-      return;
-    }
-
-    const shift = todayShifts.find(
-      s => s.staff_id === e.staff_id
+    const firstClockIn = staffEvents.find(
+      e => e.action === "clock_in"
     );
 
-    if (shift) {
-      const actual = fmtTime(e.event_time).slice(0, 5);
+    const shift = shifts.find(
+      s => s.staff_id === p.id
+    );
+
+    if (firstClockIn && shift) {
+      const actual = new Date(firstClockIn.event_time)
+        .toLocaleTimeString("en-GB", {
+          timeZone: "Asia/Tokyo",
+          hour: "2-digit",
+          minute: "2-digit"
+        });
 
       if (actual > shift.shift_start_time.slice(0, 5)) {
-        lateStaff.add(e.staff_id);
+        lateCount++;
       }
     }
   });
 
   $("testLateCount").textContent =
-    `${lateStaff.size} late staff (TEST records only)`;
+    lateCount + " staff late today (TEST)";
+
+  $("testRecords").innerHTML = events.map(e => `
+    <div style="padding:8px;border-bottom:1px solid #ddd;">
+      <strong>${escapeHtml(names[e.staff_id] || "Unknown")}</strong>
+      · ${labels[e.action]?.[0] || e.action}
+      · ${fmtDate(e.event_time)}
+      ${fmtTime(e.event_time)}
+    </div>
+  `).join("") || "No test records yet.";
 }
 
 // =====================================
-// ADD TEST PANEL AFTER MANAGER LOAD
+// CONNECT TEST MODE TO MANAGER
 // =====================================
 
 const originalLoadManagerForTest = loadManager;
 
 loadManager = async function() {
   await originalLoadManagerForTest();
-
   ensureTestPanel();
-
   await loadTestEvents();
 };

@@ -464,13 +464,6 @@ const originalLoadManagerForTest = loadManager;
 
 loadManager = async function() {
   await originalLoadManagerForTest();
-
-  try {
-    ensureTestPanel();
-    await loadTestEvents();
-    console.log("TEST MODE loaded successfully");
-  } catch (err) {
-    console.error("TEST MODE ERROR:", err);
-    alert("TEST MODE ERROR: " + err.message);
-  }
+  ensureTestPanel();
+  await loadTestEvents();
 };
